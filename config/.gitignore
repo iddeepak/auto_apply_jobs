@@ -1,0 +1,26 @@
+# Ignore Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore local environment
+.env
+.venv
+
+# Ignore IDE/editor folders
+.vscode/
+.idea/
+
+# Ignore MacOS files
+.DS_Store
+
+# Ignore Selenium logs (if any)
+*.log
+
+# Ignore resume uploads temp files (optional)
+resumes/*.tmp
+
+# Ignore backup files
+*.bak
+*.swp

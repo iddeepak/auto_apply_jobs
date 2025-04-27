@@ -1,0 +1,41 @@
+John Doe
+john.doe@example.com | +1-555-0100 | linkedin.com/in/johndoe
+
+SUMMARY
+Results-driven Software Engineer with 5+ years delivering scalable, cloud-native web applications. Expert in Python, Java, RESTful APIs, and AWS. Strong track record of automation, microservices design, Kubernetes orchestration, and driving CI/CD best practices.
+
+CORE SKILLS
+Languages:    Python, Java, JavaScript
+Frameworks:   Django, Spring Boot, React
+Cloud & DevOps: AWS (EC2, S3, Lambda, RDS), Docker, Kubernetes, Terraform, CI/CD (Jenkins, GitHub Actions)
+Tools & DBs: Git, Linux, MySQL, PostgreSQL, Selenium, ELK, Prometheus
+
+PROFESSIONAL EXPERIENCE
+Senior Software Engineer
+ABC Tech, San Francisco, CA | 2022 – Present
+• Architected and delivered 12+ microservices using Spring Boot and AWS Lambda, serving 1M+ daily users  
+• Led Kubernetes migration, reducing deployment time by 60% and improving availability to 99.9%  
+• Built Terraform-driven pipelines for infrastructure provisioning, cutting manual setup by 80%  
+• Designed RESTful APIs for React front-ends and mobile clients, boosting feature velocity by 40%
+
+Software Engineer  
+XYZ Solutions, San Francisco, CA | 2019 – 2022  
+• Developed Python automation scripts and Selenium test suites saving 100+ engineer-hours/month  
+• Built event-driven data pipelines with AWS SQS and Lambda, improving sync latency by 50%  
+• Delivered bi-weekly sprint goals in Agile squads with 95% on-time feature delivery  
+• Mentored 4 junior engineers on code quality, unit testing, and Git best practices
+
+PROJECTS
+JobApplyBot (Python, Selenium, OpenAI)  
+Open-source LinkedIn “Easy Apply” automation tool integrating AI for parsing job descriptions and auto-answering common questions.
+
+Inventory Auditor (Django, PostgreSQL, Docker)  
+Real-time warehouse inventory tracker with role-based access and CSV import/export; deployed on AWS ECS with auto-scaling.
+
+EDUCATION
+B.S. Computer Science  
+University of California, Berkeley | 2015 – 2019
+
+CERTIFICATIONS
+• AWS Certified Solutions Architect – Associate  
+• Certified Kubernetes Application Developer (CKAD)
