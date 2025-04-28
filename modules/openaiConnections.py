@@ -288,8 +288,8 @@ def ai_check_job_relevance(
         """
 
             messages = [{"role": "user", "content": prompt}]
-            reply = ai_completion(client, messages, stream=False).strip().upper()
-            return reply.startswith(('Y','y'))
+            reply = ai_completion(client, messages, stream=stream).strip().upper()
+            return "YES" in reply.upper()
 
         except Exception as exc:
             ai_error_alert("Error while checking job relevance.", exc)
