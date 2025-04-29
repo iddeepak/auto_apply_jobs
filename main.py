@@ -18,11 +18,12 @@ from modules.openaiConnections import *
 from config.secrets import use_AI, username, password, keywords, location
 from modules.open_chrome import driver,actions   # your shared driver
 from modules.resumes.generator import *
+from config.settings import *
 
 
 keywords = "Software Engineer"
 location = "United States"
-useNewResume = True
+useNewResume = False
 aiClient = None
 # Avoid applying to these companies if they have these bad words in their 'Job Description' section...  (In development)
 bad_words = ["US Citizen","USA Citizen","No C2C", "No Corp2Corp", ".NET", "Embedded Programming", "PHP", "Ruby", "CNC"]  
@@ -42,6 +43,54 @@ current_ctc = str(current_ctc)
 notice_period_months = str(notice_period//30)
 notice_period_weeks = str(notice_period//7)
 notice_period = str(notice_period)
+
+user_details = {
+            "name":  "Jone Doe",
+            "email": "jonedoe@example.com",
+            "phone_number": "+91-9999999999",
+            "address": "United States"
+        }
+
+summary = (
+            "Software Engineer with 5 + years' experience in Python, "
+            "micro-services and cloud-native architecture."
+        )
+
+experience = [
+            {
+                "company": "ACME Corp",
+                "role": "Senior Backend Engineer",
+                "dates": "Feb 2022 - Present",
+                "achievements": (
+                    "Designed a distributed job-scheduler that cut batch-processing time by 40 %."
+                    "Mentored 4 junior engineers."
+                )
+            },
+            {
+                "company": "FooBar Ltd",
+                "role": "Software Engineer",
+                "dates": "Jul 2019 - Jan 2022",
+                "achievements": "Built REST APIs in Django; served 1 M+ requests/day."
+            }
+        ]
+
+projects = [
+            {
+                "name": "Real-time Analytics Pipeline",
+                "description": "Kafka -> Flink -> ClickHouse pipeline for event analytics",
+                "technologies": "Flink, Kafka, ClickHouse, Docker"
+            }
+        ]
+
+user_skills = [
+            "Python", "Django", "Flink", "Kafka", "AWS", "Docker", "Kubernetes"
+        ]
+certificates = [
+            {
+                "name": "AWS Certified Solutions Architect - Associate",
+                "description": "Credential ID ABCDEF123456"
+            }
+        ]
 
 class JobApplyLinkedIn:
     LOGIN_URL   = "https://www.linkedin.com/login"
@@ -157,7 +206,7 @@ class JobApplyLinkedIn:
         actions.send_keys(Keys.ESCAPE).perform()
         wait_span_click(driver, 'Discard', 2)
 
-    def extract_years_of_experience(text: str) -> int:
+    def extract_years_of_experience(self,text: str) -> int:
         # Extract all patterns like '10+ years', '5 years', '3-5 years', etc.
         matches = re.findall(re_experience, text)
         if len(matches) == 0: 
@@ -209,6 +258,7 @@ class JobApplyLinkedIn:
         return (job_id,title,company,work_location,work_style,skip)
 
     def apply_to_jobs(self):
+        global useNewResume, user_details, summary, experience, projects, user_skills, certificates 
         try:
             # Wait until job listings are loaded
             self._wait(EC.presence_of_all_elements_located((By.XPATH, "//li[@data-occludable-job-id]")))
@@ -229,6 +279,7 @@ class JobApplyLinkedIn:
                 else:
                         skills = "Unknown"
 
+                should_apply = False
                 if use_AI and description != "Unknown":
                     should_apply = ai_check_job_relevance(
                     aiClient,
@@ -240,13 +291,36 @@ class JobApplyLinkedIn:
                     job_skills=skills,
                     job_description=description
                      )
-                # should_apply = True # Enable for Testing...........    
+
                 if not should_apply:
-                    print_lg(f"\n=======================Job does not match with your resume as per AI model==========================\n")
-                    # print_lg(f"=======================Create Resume as per the description==========================")
-                    # create_custom_resume()
-                    continue
-                
+                    print_lg("\n✖ AI match < 60 % – crafting a custom résumé …")
+                    useNewResume = True
+                    (user_details,
+                        summary,
+                        experience,
+                        projects,
+                        skills) = generate_custom_resume_data(
+                            aiClient,
+                            base_user       = user_details,
+                            base_summary    = summary,
+                            base_experience = experience,
+                            base_projects   = projects,
+                            base_skills     = user_skills,
+                            job_title       = title,
+                            job_description = description,
+                            job_skills      = skills,      
+                    )
+                    
+                    create_resume_docx(
+                            user_details=user_details,
+                            summary=summary,
+                            experience=experience,
+                            projects=projects,
+                            skills=skills,
+                            certificates=certificates
+                    )
+
+
                 if should_apply:
                     print_lg("=================================\nApplying for Job now....\n========================================")
                 easy_apply_button = self._wait(
@@ -285,8 +359,6 @@ class JobApplyLinkedIn:
                                 errored = ""
                                 modal = find_by_class(driver, "jobs-easy-apply-modal")
                                 wait_span_click(modal, "Next", 1)
-                                # if description != "Unknown":
-                                #     resume = create_custom_resume(description)
                                 next_button = True
                                 questions_list = set()
                                 next_counter = 0
@@ -301,7 +373,11 @@ class JobApplyLinkedIn:
                                         errored = "stuck"
                                         raise Exception("Seems like stuck in a continuous loop of next, probably because of new questions.")
                                     questions_list = self.answer_questions(modal, questions_list, work_location, job_description=description)
-                                    if useNewResume and not uploaded: uploaded, resume = self.upload_resume(modal, default_resume_path)
+                                    if useNewResume and not uploaded:
+                                        uploaded, resume = self.upload_resume(modal,"resume/new_resume.docx")
+                                    else:
+                                        uploaded, resume = self.upload_resume(modal, default_resume_path)
+                                        # print_lg("why useNewResume is false")
                                     try: next_button = modal.find_element(By.XPATH, './/span[normalize-space(.)="Review"]') 
                                     except NoSuchElementException:  next_button = modal.find_element(By.XPATH, './/button[contains(span, "Next")]')
                                     try: next_button.click()
@@ -619,13 +695,14 @@ class JobApplyLinkedIn:
         
    
     def testOpenAi(self):
+                global user_details, summary, experience, projects, user_skills, certificates
                 title= "Sr. iOS Mobile Application Developer (Hybrid)"
                 company= "Redolent, In"
                 work_location= "dolent, In"
                 work_style= "dolent, In"
                 experience_required= "Error in extraction"
                 description= "We are seeking a highly skilled and experienced Senior iOS Mobile Application Developer to join our dynamic team on a hybrid contract basis. The ideal candidate will have deep expertise in Swift, UIKit, SwiftUI, and a strong grasp of modern iOS architecture patterns. You will play a key role in the design, development, and enhancement of iOS mobile applications that power delightful, intuitive, and secure user experiences."+"Responsibilities:"+"Design, develop, and maintain advanced iOS applications using Swift, SwiftUI, and UIKit."+"Collaborate with cross-functional teams including product managers, designers, QA engineers, and backend developers to define, design, and ship new features."+"Optimize application performance and memory management to ensure high-quality user experiences."+"Write clean, scalable, maintainable code and participate in code reviews."+"Integrate RESTful APIs and third-party libraries."
-                
+                should_apply = False
                 if description != "Unknown" and use_AI:
                         print("ai extract skills is called")
                         skills = ai_extract_skills(aiClient, description)
@@ -646,6 +723,8 @@ class JobApplyLinkedIn:
                      )
                 if not should_apply:
                     print_lg(f"GPT ⇒ NO – skipping {title} | {company}")
+
+                should_apply = True
                 
                 print(
                     "Job Title:", title,
@@ -658,85 +737,133 @@ class JobApplyLinkedIn:
                 )
                 print(should_apply)
 
-    def create_resume_if_ai_matching_fails(self):
-        user_details = {
-            "name":  "Jone Doe",
-            "email": "jonedoe@example.com",
-            "phone_number": "+91-9999999999",
-            "address": "United States"
-        }
+                print_lg("generating custom resume data")
+                (user_details,
+                        summary,
+                        experience,
+                        projects,
+                        skills) = generate_custom_resume_data(
+                            aiClient,
+                            base_user       = user_details,
+                            base_summary    = summary,
+                            base_experience = experience,
+                            base_projects   = projects,
+                            base_skills     = user_skills,
+                            job_title       = title,
+                            job_description = description,
+                            job_skills      = skills,    
+                        )
+                print_lg(user_details)
+                print_lg(summary)
+                print_lg(experience)
+                print_lg(projects)
+                print_lg(skills)
+                certificates = [
+                        {
+                            "name": "AWS Certified Solutions Architect - Associate",
+                            "description": "Credential ID ABCDEF123456"
+                        }
+                    ]
+                create_resume_docx(
+                            user_details=user_details,
+                            summary=summary,
+                            experience=experience,
+                            projects=projects,
+                            skills=skills,
+                            certificates=certificates
+                        )
+                
+    def apply_filter_based_on_sort_by_and_date_option(self) -> None:
+        try:
+            print_lg("Attempting to open 'All filters' panel...")
 
-        summary = (
-            "Software Engineer with 5 + years' experience in Python, "
-            "micro-services and cloud-native architecture."
-        )
+            # Wait using visible, robust text-based XPath
+            filter_btn = self._wait(
+                EC.element_to_be_clickable((By.XPATH, '//button[normalize-space()="All filters" or @aria-label="Show all filters"]')),
+                timeout=7
+            )
 
-        experience = [
-            {
-                "company": "ACME Corp",
-                "role": "Senior Backend Engineer",
-                "dates": "Feb 2022 - Present",
-                "achievements": (
-                    "Designed a distributed job-scheduler that cut batch-processing time by 40 %."
-                    "Mentored 4 junior engineers."
-                )
-            },
-            {
-                "company": "FooBar Ltd",
-                "role": "Software Engineer",
-                "dates": "Jul 2019 - Jan 2022",
-                "achievements": "Built REST APIs in Django; served 1 M+ requests/day."
-            }
-        ]
+            # Scroll into view just in case
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", filter_btn)
 
-        projects = [
-            {
-                "name": "Real-time Analytics Pipeline",
-                "description": "Kafka -> Flink -> ClickHouse pipeline for event analytics",
-                "technologies": "Flink, Kafka, ClickHouse, Docker"
-            }
-        ]
+            # Click it
+            try:
+                filter_btn.click()
+            except Exception:
+                self.driver.execute_script("arguments[0].click();", filter_btn)
 
-        skills = [
-            "Python", "Django", "Flink", "Kafka", "AWS", "Docker", "Kubernetes"
-        ]
+            print_lg("✅ Opened 'All filters' panel.")
 
-        certificates = [
-            {
-                "name": "AWS Certified Solutions Architect - Associate",
-                "description": "Credential ID ABCDEF123456"
-            }
-        ]
-        print_lg("creating resume docx")
-        # build both resume.docx and resume.pdf in the current folder
-        create_resume_docx(
-            user_details=user_details,
-            summary=summary,
-            experience=experience,
-            projects=projects,
-            skills=skills,
-            certificates=certificates
-        )
+        except Exception as e:
+            print_lg("❌ Failed to open All Filters panel.")
+            print_lg(f"Exception: {str(e)}")
+
+    def apply_sort_and_date_filters(self, sort_by: str, date_option: str) -> None:
+        try:
+            print_lg(f"Applying filters → Sort by: '{sort_by}', Date: '{date_option}'")
+
+            # 1. Select sort option
+            if sort_by:
+                sort_xpath = f'//span[normalize-space()="{sort_by}"]'
+                sort_btn = self._wait(EC.element_to_be_clickable((By.XPATH, sort_xpath)), timeout=5)
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", sort_btn)
+                sort_btn.click()
+                print_lg(f"✔ Selected sort option: {sort_by}")
+
+            # 2. Select date option
+            if date_option:
+                date_xpath = f'//span[normalize-space()="{date_option}"]'
+                date_btn = self._wait(EC.element_to_be_clickable((By.XPATH, date_xpath)), timeout=5)
+                self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", date_btn)
+                date_btn.click()
+                print_lg(f"✔ Selected date filter: {date_option}")
+
+            # 3. Re-fetch fresh "Show results" button now
+            self._wait(EC.presence_of_element_located((By.XPATH, '//button[contains(@aria-label, "Apply current filters to show")]')), timeout=5)
+            show_button = self.driver.find_element(By.XPATH, '//button[contains(@aria-label, "Apply current filters to show")]')
+
+            # Scroll and click
+            self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", show_button)
+            try:
+                show_button.click()
+            except Exception:
+                self.driver.execute_script("arguments[0].click();", show_button)
+
+            print_lg("✅ Clicked 'Show results' button.")
+
+            # Wait for job results to refresh
+            self._wait(EC.presence_of_all_elements_located((By.XPATH, "//li[@data-occludable-job-id]")), timeout=10)
+
+        except Exception as e:
+            print_lg("❌ Failed to apply sort/date filters.")
+            print_lg(f"Exception: {str(e)}")
+
+
+
+       
+
 
     def run(self):
         try:
             global  useNewResume, aiClient
             resume_path = os.path.abspath(default_resume_path)
             if not os.path.exists(resume_path):
-                pyautogui.alert(text='Your default resume "{}" is missing! Please update it\'s folder path "default_resume_path" in config.py\n\nOR\n\nAdd a resume with exact name and path (check for spelling mistakes including cases).\n\n\nFor now the bot will continue using your previous upload from LinkedIn!'.format("resume/resume.pdf"), title="Missing Resume", button="OK")
-                useNewResume = False
+                pyautogui.alert(text='Your default resume "{}" is missing! Please update it\'s folder path "default_resume_path" in config.py\n\nOR\n\nAdd a resume with exact name and path (check for spelling mistakes including cases).\n\n\nFor now the bot will create new custom resume for LinkedIn!'.format("resume/new_resume.docx"), title="Missing Resume", button="OK")
+                useNewResume = True
 
 
             if use_AI:
                 aiClient = ai_create_openai_client()
             
-            # self.login()
-            # self.search_jobs()
-            # self.apply_easy_apply_filter()
-            # buffer(1)
-            # self.apply_to_jobs()
+            self.login()
+            self.search_jobs()
+            self.apply_easy_apply_filter()
+            buffer(5)
+            self.apply_filter_based_on_sort_by_and_date_option()
+            self.apply_sort_and_date_filters(sort_by=sort_by,date_option=date_option)
+            buffer(3)
+            self.apply_to_jobs()
             # self.testOpenAi()
-            self.create_resume_if_ai_matching_fails()
         except NoSuchWindowException:   pass
         except Exception as e:
             critical_error_log("In Applier Main", e)

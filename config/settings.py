@@ -10,3 +10,7 @@ smooth_scroll = False               # True or False, Note: True or False are cas
 
 # Do you want to get alerts on errors related to AI API connection?
 showAiErrorAlerts = True            # True or False, Note: True or False are case-sensitive
+
+sort_by = "Most recent"   # "Most recent", "Most relevant"
+
+date_option = "Past 24 hours" # date_option coud be "Any time", "Past month", "Past week", "Past 24 hours"

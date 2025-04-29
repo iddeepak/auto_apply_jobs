@@ -10,6 +10,8 @@ from openai import OpenAI
 from openai.types.model import Model
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 from typing import Iterator, Literal
+import json, time, re
+from copy import deepcopy
 
 
 apiCheckInstructions = """
@@ -296,4 +298,93 @@ def ai_check_job_relevance(
             # Fail-open so we don’t mistakenly skip good jobs
             return True
     # ─────────────────────────────────────────────────────────────────────────
+
+
+
+def generate_custom_resume_data(
+    client: OpenAI,
+    *,
+    base_user: dict,
+    base_summary: str,
+    base_experience: list,
+    base_projects: list,
+    base_skills: list,
+    job_title: str,
+    job_description: str,
+    job_skills: list[str] | dict,
+) -> tuple[dict, str, list, list, list]:
+    """
+    Returns (user_details, summary, experience, projects, skills)
+    tailored to the current posting.
+
+    If the AI call fails → returns originals untouched.
+    """
+
+    try:
+        if isinstance(job_skills, dict):
+            for v in job_skills.values():
+                if isinstance(v, list):
+                    base_skills.extend(v)
+
+        prompt = f"""
+    You are a senior résumé writer.  Rewrite the candidate's résumé so it is a better
+    match for the following job.  *Do not fabricate experience*, but you may re-order,
+    shorten, emphasise relevant skills, and add a short “Relevant Tech Stack” project
+    containing keywords.
+
+    Return **only** valid JSON with this schema:
+
+    {{
+    "summary": "... one powerful sentence ...",
+    "skills": ["skill1", "skill2", "..."],
+    "add_project": {{
+        "name": "Relevant Tech Stack",
+        "description": "Stack drawn from job posting",
+        "technologies": "comma, separated, keywords"
+    }}
+    }}
+
+    #############  CURRENT RESUME  #############
+    SUMMARY:
+    {base_summary}
+
+    SKILLS:
+    {', '.join(base_skills)}
+
+    EXPERIENCE (truncated):
+    {'; '.join([e['company'] for e in base_experience])}
+
+    #############  JOB POSTING  #############
+    TITLE  : {job_title}
+    SKILLS : {', '.join(base_skills[:15])}
+    DESC   :
+    {job_description}
+    """
+
+        messages = [{"role": "user", "content": prompt}]
+        raw_json = ai_completion(
+            client,
+                messages,
+                stream=False,
+                temperature=0.5,
+            )
+
+        data = json.loads(raw_json)
+
+            # ---------- merge into copies so originals stay unchanged  ----
+        new_summary   = data.get("summary", base_summary)
+        new_skills    = data.get("skills", []) + [
+            s for s in base_skills if s not in data.get("skills", [])
+            ]
+        new_projects  = deepcopy(base_projects)
+        add_proj      = data.get("add_project")
+        if add_proj:
+            new_projects.append(add_proj)
+
+            return base_user, new_summary, base_experience, new_projects, new_skills
+
+    except Exception as err:
+        ai_error_alert("Failed to generate custom résumé; using original.", err)
+        return base_user, base_summary, base_experience, base_projects, base_skills
+
 #>
