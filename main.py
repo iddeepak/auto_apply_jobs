@@ -17,6 +17,7 @@ from modules.clickers_and_finders import *
 from modules.openaiConnections import *
 from config.secrets import use_AI, username, password, keywords, location
 from modules.open_chrome import driver,actions   # your shared driver
+from modules.resumes.generator import *
 
 
 keywords = "Software Engineer"
@@ -241,7 +242,9 @@ class JobApplyLinkedIn:
                      )
                 # should_apply = True # Enable for Testing...........    
                 if not should_apply:
-                    print_lg(f"=======================\nJob does not match with your resume as per AI model ⇒ – skipping {title} | {company}\n================================")
+                    print_lg(f"\n=======================Job does not match with your resume as per AI model==========================\n")
+                    # print_lg(f"=======================Create Resume as per the description==========================")
+                    # create_custom_resume()
                     continue
                 
                 if should_apply:
@@ -655,6 +658,66 @@ class JobApplyLinkedIn:
                 )
                 print(should_apply)
 
+    def create_resume_if_ai_matching_fails(self):
+        user_details = {
+            "name":  "Jone Doe",
+            "email": "jonedoe@example.com",
+            "phone_number": "+91-9999999999",
+            "address": "United States"
+        }
+
+        summary = (
+            "Software Engineer with 5 + years' experience in Python, "
+            "micro-services and cloud-native architecture."
+        )
+
+        experience = [
+            {
+                "company": "ACME Corp",
+                "role": "Senior Backend Engineer",
+                "dates": "Feb 2022 - Present",
+                "achievements": (
+                    "Designed a distributed job-scheduler that cut batch-processing time by 40 %."
+                    "Mentored 4 junior engineers."
+                )
+            },
+            {
+                "company": "FooBar Ltd",
+                "role": "Software Engineer",
+                "dates": "Jul 2019 - Jan 2022",
+                "achievements": "Built REST APIs in Django; served 1 M+ requests/day."
+            }
+        ]
+
+        projects = [
+            {
+                "name": "Real-time Analytics Pipeline",
+                "description": "Kafka -> Flink -> ClickHouse pipeline for event analytics",
+                "technologies": "Flink, Kafka, ClickHouse, Docker"
+            }
+        ]
+
+        skills = [
+            "Python", "Django", "Flink", "Kafka", "AWS", "Docker", "Kubernetes"
+        ]
+
+        certificates = [
+            {
+                "name": "AWS Certified Solutions Architect - Associate",
+                "description": "Credential ID ABCDEF123456"
+            }
+        ]
+        print_lg("creating resume docx")
+        # build both resume.docx and resume.pdf in the current folder
+        create_resume_docx(
+            user_details=user_details,
+            summary=summary,
+            experience=experience,
+            projects=projects,
+            skills=skills,
+            certificates=certificates
+        )
+
     def run(self):
         try:
             global  useNewResume, aiClient
@@ -667,12 +730,13 @@ class JobApplyLinkedIn:
             if use_AI:
                 aiClient = ai_create_openai_client()
             
-            self.login()
-            self.search_jobs()
-            self.apply_easy_apply_filter()
-            buffer(1)
-            self.apply_to_jobs()
+            # self.login()
+            # self.search_jobs()
+            # self.apply_easy_apply_filter()
+            # buffer(1)
+            # self.apply_to_jobs()
             # self.testOpenAi()
+            self.create_resume_if_ai_matching_fails()
         except NoSuchWindowException:   pass
         except Exception as e:
             critical_error_log("In Applier Main", e)
